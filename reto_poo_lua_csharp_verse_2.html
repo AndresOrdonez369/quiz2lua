@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reto POO · Lua · C# · Verse — Enseña y evalúa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --stage:#46178F; --stage-deep:#2E0F5E; --panel:#1B1035; --panel-2:#120A26;
+    --ink:#FFFFFF; --ink-dim:rgba(255,255,255,.72);
+    --rojo:#E21B3C; --azul:#1368CE; --amarillo:#FFA602; --verde:#26890C;
+    --oro:#FFC24B; --ok:#66E28A; --bad:#FF7A8A;
+    --radius:14px;
+    --font-ui:'Montserrat',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    --font-code:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--font-ui);color:var(--ink);
+    background:radial-gradient(1200px 800px at 20% -10%, #5B23AE 0%, var(--stage) 45%, var(--stage-deep) 100%);
+    min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;
+  }
+  button{font-family:inherit;cursor:pointer;border:none}
+  code{font-family:var(--font-code)}
+
+  /* ---------- formas flotantes de fondo ---------- */
+  .bg-shapes{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+  .bg-shapes span{position:absolute;opacity:.08;font-size:64px;animation:float 14s ease-in-out infinite}
+  .bg-shapes span:nth-child(1){top:8%;left:6%;color:var(--rojo);animation-delay:0s}
+  .bg-shapes span:nth-child(2){top:70%;left:12%;color:var(--azul);font-size:90px;animation-delay:-4s}
+  .bg-shapes span:nth-child(3){top:20%;right:8%;color:var(--amarillo);font-size:78px;animation-delay:-8s}
+  .bg-shapes span:nth-child(4){bottom:10%;right:14%;color:var(--verde);animation-delay:-11s}
+  .bg-shapes span:nth-child(5){top:48%;left:46%;color:var(--oro);font-size:54px;animation-delay:-6s}
+  @keyframes float{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-26px) rotate(8deg)}}
+  @media (prefers-reduced-motion:reduce){.bg-shapes span{animation:none}.timerbar i{transition:none!important}}
+
+  /* ---------- capa principal ---------- */
+  .app{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;max-width:1060px;width:100%;margin:0 auto;padding:18px 20px 28px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+  .brand{font-weight:900;letter-spacing:.5px;font-size:15px;text-transform:uppercase}
+  .brand small{display:block;font-weight:700;font-size:11px;color:var(--ink-dim);letter-spacing:1.5px}
+  .hud{display:flex;align-items:center;gap:14px;font-weight:800;font-size:14px}
+  .hud .pill{background:rgba(255,255,255,.12);padding:6px 12px;border-radius:999px;display:flex;gap:6px;align-items:center}
+  .hud .pill b{color:var(--oro)}
+  #btnMute{background:rgba(255,255,255,.12);color:var(--ink);border-radius:999px;width:36px;height:36px;font-size:16px}
+  #btnMute:hover{background:rgba(255,255,255,.22)}
+
+  .screen{display:none;flex:1;flex-direction:column}
+  .screen.active{display:flex;animation:pop .35s ease}
+  @keyframes pop{from{opacity:0;transform:scale(.985)}to{opacity:1;transform:none}}
+
+  /* ---------- START ---------- */
+  #scrStart{align-items:center;justify-content:center;text-align:center;gap:22px;padding:20px 0}
+  .kicker{font-size:12px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:var(--oro)}
+  h1{font-size:clamp(34px,6vw,58px);font-weight:900;line-height:1.05}
+  h1 .lang{display:inline-block;padding:2px 14px;border-radius:12px;margin:0 3px}
+  h1 .l-lua{background:var(--azul)} h1 .l-cs{background:var(--verde)} h1 .l-verse{background:var(--rojo)}
+  .lead{max-width:640px;color:var(--ink-dim);font-weight:600;font-size:16px;line-height:1.55}
+  .lead b{color:var(--ink)}
+  .blocks-pick{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:760px;width:100%}
+  .block-chip{background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.18);border-radius:var(--radius);padding:12px 10px;color:var(--ink);text-align:left;transition:.15s}
+  .block-chip .t{font-weight:800;font-size:13px;display:flex;align-items:center;gap:8px}
+  .block-chip .n{font-size:11px;color:var(--ink-dim);font-weight:600;margin-top:3px}
+  .block-chip .dot{width:10px;height:10px;border-radius:3px;flex:none}
+  .block-chip.on{background:rgba(255,255,255,.16);border-color:var(--oro)}
+  .block-chip:hover{transform:translateY(-2px)}
+  .start-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  .btn{border-radius:999px;font-weight:900;font-size:16px;padding:14px 34px;letter-spacing:.4px;transition:.15s;box-shadow:0 6px 0 rgba(0,0,0,.28)}
+  .btn:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.28)}
+  .btn-primary{background:var(--oro);color:#3A2400}
+  .btn-ghost{background:rgba(255,255,255,.14);color:var(--ink)}
+  .note-noreps{font-size:12px;color:var(--ink-dim);max-width:560px}
+
+  /* ---------- INTRO DE BLOQUE (ENSEÑA) ---------- */
+  #scrIntro{justify-content:center;gap:18px;max-width:860px;margin:0 auto;width:100%}
+  .intro-tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:900;letter-spacing:2px;text-transform:uppercase}
+  .intro-tag .dot{width:12px;height:12px;border-radius:4px}
+  #scrIntro h2{font-size:clamp(26px,4.4vw,40px);font-weight:900;line-height:1.1}
+  .intro-card{background:var(--panel);border-radius:18px;padding:22px 24px;border:1px solid rgba(255,255,255,.08)}
+  .intro-card p{color:var(--ink-dim);font-weight:600;line-height:1.6;font-size:15.5px}
+  .intro-card p b{color:var(--ink)}
+  .intro-card p .hl{color:var(--oro);font-weight:800}
+  pre.codebox{background:var(--panel-2);border-radius:12px;padding:14px 16px;margin-top:14px;overflow-x:auto;border:1px solid rgba(255,255,255,.07)}
+  pre.codebox code{font-size:13.5px;line-height:1.6;color:#EAE3FF;white-space:pre}
+  .intro-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .ensena-evalua{font-size:12px;font-weight:800;color:var(--ink-dim);letter-spacing:1px}
+  .ensena-evalua b{color:var(--oro)}
+
+  /* ---------- PREGUNTA ---------- */
+  #scrQ{gap:14px}
+  .q-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .chip{font-size:11.5px;font-weight:900;letter-spacing:1px;padding:5px 12px;border-radius:999px;text-transform:uppercase}
+  .chip.block{background:rgba(255,255,255,.14)}
+  .chip.lang-LUA{background:var(--azul)} .chip.lang-CS{background:var(--verde)}
+  .chip.lang-VERSE{background:var(--rojo)} .chip.lang-CONCEPTO{background:#7A3FD1}
+  .chip.lang-MIX{background:linear-gradient(90deg,var(--azul),var(--verde),var(--rojo))}
+  .q-count{margin-left:auto;font-weight:800;font-size:13px;color:var(--ink-dim)}
+  .timerbar{height:10px;background:rgba(255,255,255,.14);border-radius:999px;overflow:hidden}
+  .timerbar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--oro),#FF8A3C);transition:width .2s linear}
+  .q-text{background:var(--panel);border-radius:16px;padding:20px 22px;border:1px solid rgba(255,255,255,.08)}
+  .q-text h3{font-size:clamp(18px,2.6vw,24px);font-weight:800;line-height:1.35}
+  .q-text h3 code{background:rgba(255,255,255,.1);padding:1px 8px;border-radius:8px;font-size:.88em}
+  .answers{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .ans{border-radius:var(--radius);padding:18px 16px;display:flex;align-items:center;gap:14px;color:#fff;font-weight:800;font-size:15.5px;text-align:left;line-height:1.35;box-shadow:0 6px 0 rgba(0,0,0,.3);transition:transform .12s, box-shadow .12s, opacity .25s, filter .25s;min-height:78px}
+  .ans:hover{transform:translateY(-2px)}
+  .ans:focus-visible{outline:3px solid #fff;outline-offset:3px}
+  .ans .shape{font-size:22px;flex:none;width:34px;text-align:center}
+  .ans code{background:rgba(0,0,0,.22);padding:1px 7px;border-radius:7px;font-size:.9em;font-weight:700}
+  .ans.c0{background:var(--rojo)} .ans.c1{background:var(--azul)}
+  .ans.c2{background:var(--amarillo);color:#3A2400} .ans.c2 code{background:rgba(0,0,0,.12)}
+  .ans.c3{background:var(--verde)}
+  .ans[disabled]{cursor:default}
+  .ans.dim{opacity:.28;filter:saturate(.4)}
+  .ans.correct{outline:4px solid #fff;transform:scale(1.02)}
+  .ans.picked-wrong{outline:4px dashed rgba(255,255,255,.85)}
+  .kbd-hint{font-size:11.5px;color:var(--ink-dim);font-weight:600;text-align:center}
+  kbd{background:rgba(255,255,255,.15);border-radius:6px;padding:1px 7px;font-family:var(--font-code);font-size:11px}
+
+  /* ---------- REVEAL / TARJETA DEL PROFESOR ---------- */
+  .reveal{display:none;background:var(--panel);border-radius:18px;border:1px solid rgba(255,255,255,.1);padding:20px 22px;gap:14px;flex-direction:column;animation:slideup .3s ease}
+  .reveal.show{display:flex}
+  @keyframes slideup{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .verdict{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .verdict .badge{font-size:15px;font-weight:900;padding:8px 18px;border-radius:999px}
+  .verdict .badge.ok{background:rgba(102,226,138,.18);color:var(--ok);border:2px solid var(--ok)}
+  .verdict .badge.bad{background:rgba(255,122,138,.15);color:var(--bad);border:2px solid var(--bad)}
+  .verdict .pts{font-weight:900;color:var(--oro);font-size:15px}
+  .verdict .streakup{font-weight:800;font-size:13px;color:var(--ink-dim)}
+  .explain{color:var(--ink-dim);font-weight:600;font-size:15px;line-height:1.65}
+  .explain b{color:var(--ink)} .explain .hl{color:var(--oro);font-weight:800}
+  .explain code{background:rgba(255,255,255,.1);padding:1px 7px;border-radius:7px;font-size:.9em}
+  .anchor{background:linear-gradient(90deg, rgba(255,194,75,.14), rgba(255,194,75,.04));border-left:4px solid var(--oro);border-radius:10px;padding:12px 16px;font-weight:800;font-size:15px}
+  .anchor small{display:block;font-size:10.5px;letter-spacing:2px;color:var(--oro);text-transform:uppercase;margin-bottom:4px}
+  .reveal-foot{display:flex;justify-content:flex-end}
+
+  /* ---------- FINAL ---------- */
+  #scrEnd{align-items:center;gap:20px;text-align:center;justify-content:center}
+  #scrEnd h2{font-size:clamp(30px,5vw,46px);font-weight:900}
+  .score-big{font-size:clamp(44px,8vw,72px);font-weight:900;color:var(--oro);line-height:1}
+  .score-sub{font-weight:800;color:var(--ink-dim)}
+  .results{width:100%;max-width:720px;display:flex;flex-direction:column;gap:10px;text-align:left}
+  .res-row{background:var(--panel);border-radius:12px;padding:12px 16px;border:1px solid rgba(255,255,255,.08)}
+  .res-row .rt{display:flex;justify-content:space-between;font-weight:800;font-size:13.5px;margin-bottom:8px}
+  .res-row .rt span:last-child{color:var(--ink-dim)}
+  .bar{height:10px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:999px;transition:width .8s ease}
+  .review{width:100%;max-width:720px;text-align:left;background:var(--panel);border-radius:14px;padding:16px 18px;border:1px solid rgba(255,255,255,.08)}
+  .review h4{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--oro);margin-bottom:10px}
+  .review ul{list-style:none;display:flex;flex-direction:column;gap:8px}
+  .review li{font-weight:700;font-size:14px;color:var(--ink-dim);padding-left:18px;position:relative;line-height:1.45}
+  .review li::before{content:"↺";position:absolute;left:0;color:var(--oro)}
+  .review .allok{color:var(--ok);font-weight:800}
+  .end-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+
+  @media (max-width:680px){
+    .answers{grid-template-columns:1fr}
+    .blocks-pick{grid-template-columns:1fr 1fr}
+    .app{padding:14px 14px 22px}
+    .ans{min-height:64px;font-size:14.5px}
+  }
+  @media (max-width:440px){.blocks-pick{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="bg-shapes" aria-hidden="true"><span>▲</span><span>◆</span><span>●</span><span>■</span><span>▲</span></div>
+
+<div class="app">
+  <div class="topbar">
+    <div class="brand">Reto POO<small>CUN · Programación de Videojuegos</small></div>
+    <div class="hud">
+      <span class="pill" id="hudScore" hidden>⭐ <b id="scoreVal">0</b></span>
+      <span class="pill" id="hudStreak" hidden>🔥 <b id="streakVal">0</b></span>
+      <button id="btnMute" title="Sonido" aria-label="Activar o silenciar sonido">🔊</button>
+    </div>
+  </div>
+
+  <!-- ============ START ============ -->
+  <section class="screen active" id="scrStart">
+    <div class="kicker">Enseña · Evalúa · Explica</div>
+    <h1>Reto POO en <span class="lang l-lua">Lua</span> <span class="lang l-cs">C#</span> <span class="lang l-verse">Verse</span></h1>
+    <p class="lead">27 retos sobre <b>Programación Orientada a Objetos</b>: metatablas, <code>self</code>, los 4 pilares, interfaces y clases en tres lenguajes. Cada bloque <b>primero te enseña la idea clave</b> y luego la evalúa. Cada respuesta viene con la <b>explicación del profesor</b> y su frase-ancla.</p>
+    <div class="blocks-pick" id="blockPick" role="group" aria-label="Elegir bloques"></div>
+    <div class="start-actions">
+      <button class="btn btn-primary" id="btnStart">Empezar ▶</button>
+      <button class="btn btn-ghost" id="btnAll">Seleccionar todo</button>
+    </div>
+    <p class="note-noreps">Continúa donde termina <b>Reto Lua</b> (bases del lenguaje): aquí no repetimos variables, bucles ni tablas básicas — solo objetos, clases y contratos.</p>
+  </section>
+
+  <!-- ============ INTRO DE BLOQUE ============ -->
+  <section class="screen" id="scrIntro">
+    <div class="intro-tag"><span class="dot" id="introDot"></span><span id="introTag"></span></div>
+    <h2 id="introTitle"></h2>
+    <div class="intro-card">
+      <p id="introBody"></p>
+      <pre class="codebox" id="introCodeWrap"><code id="introCode"></code></pre>
+    </div>
+    <div class="intro-foot">
+      <span class="ensena-evalua"><b>ENSEÑA</b> primero · <b>EVALÚA</b> después — usa esta tarjeta para explicar antes de preguntar</span>
+      <button class="btn btn-primary" id="btnIntroGo">Preguntas del bloque ▶</button>
+    </div>
+  </section>
+
+  <!-- ============ PREGUNTA ============ -->
+  <section class="screen" id="scrQ">
+    <div class="q-meta">
+      <span class="chip block" id="qBlock"></span>
+      <span class="chip" id="qLang"></span>
+      <span class="q-count" id="qCount"></span>
+    </div>
+    <div class="timerbar" aria-hidden="true"><i id="timerFill"></i></div>
+    <div class="q-text">
+      <h3 id="qText"></h3>
+      <pre class="codebox" id="qCodeWrap" hidden><code id="qCode"></code></pre>
+    </div>
+    <div class="answers" id="answers"></div>
+    <p class="kbd-hint">Responde con <kbd>1</kbd>–<kbd>4</kbd> · continúa con <kbd>Enter</kbd></p>
+
+    <div class="reveal" id="reveal" aria-live="polite">
+      <div class="verdict">
+        <span class="badge" id="verdictBadge"></span>
+        <span class="pts" id="verdictPts"></span>
+        <span class="streakup" id="verdictStreak"></span>
+      </div>
+      <p class="explain" id="explainText"></p>
+      <pre class="codebox" id="explainCodeWrap" hidden><code id="explainCode"></code></pre>
+      <div class="anchor"><small>Frase-ancla para tu clase</small><span id="anchorText"></span></div>
+      <div class="reveal-foot"><button class="btn btn-primary" id="btnNext">Siguiente ▶</button></div>
+    </div>
+  </section>
+
+  <!-- ============ FINAL ============ -->
+  <section class="screen" id="scrEnd">
+    <h2>¡Reto completado! 🎉</h2>
+    <div class="score-big" id="endScore">0</div>
+    <div class="score-sub" id="endSub"></div>
+    <div class="results" id="endResults"></div>
+    <div class="review" id="endReview"></div>
+    <div class="end-actions">
+      <button class="btn btn-primary" id="btnReplay">Jugar de nuevo ↺</button>
+      <button class="btn btn-ghost" id="btnReplayMissed" hidden>Repasar solo falladas ↺</button>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =====================================================================
+   DATOS · 6 bloques — cada uno: intro (ENSEÑA) + preguntas (EVALÚA)
+   Lenguaje: LUA · CS · VERSE · CONCEPTO · MIX
+===================================================================== */
+const BLOCKS = [
+{
+  id:"A", color:"#1368CE", name:"El motor: metatablas y __index", lang:"LUA",
+  intro:{
+    title:"La regla de oro que sostiene TODA la POO de Lua",
+    body:'Lua no tiene clases: tiene <b>tablas</b> y una regla de búsqueda. Cuando lees <code>t.clave</code> y la clave <b>no existe</b> en <code>t</code>, Lua mira su metatabla: si <code>__index</code> es una tabla, <span class="hl">repite la búsqueda ahí</span> (y la cadena puede seguir — eso ES la herencia). La <b>escritura nunca sube</b> por esa cadena: siempre escribe en la tabla misma. De esta única regla se deriva todo lo demás.',
+    code:
+`-- El algoritmo, en 4 pasos:
+-- t.clave  y la clave NO está en t...
+-- 1) ¿t tiene metatabla?        No -> nil
+-- 2) ¿la metatabla tiene __index? No -> nil
+-- 3) ¿__index es TABLA?  -> repite la búsqueda ahí (¡cadena!)
+-- 4) ¿__index es FUNCIÓN? -> la llama: __index(t, clave)`
+  },
+  questions:[
+  {
+    lang:"LUA",
+    q:'¿<b>Cuándo</b> consulta Lua el <code>__index</code> de la metatabla?',
+    options:[
+      'Siempre que lees cualquier clave de la tabla',
+      'Solo cuando la clave buscada <b>no existe</b> en la tabla',
+      'Solo cuando escribes una clave nueva',
+      'Solo dentro de métodos llamados con <code>:</code>'
+    ],
+    correct:1,
+    explain:'<code>__index</code> es un <b>plan B</b>: si la clave existe en la tabla, esa gana y la metatabla ni se mira. Por eso una instancia puede "tapar" (override) un método del padre simplemente teniendo su propia clave. Y ojo: la <b>escritura</b> jamás pasa por <code>__index</code> (para eso existe <code>__newindex</code>, que no usaremos en clase).',
+    anchor:'¿Falta la clave? Búscala en __index. Esa regla ES la POO de Lua.'
+  },
+  {
+    lang:"LUA",
+    q:'Ejecutas <code>p.vida = 50</code> sobre una instancia. ¿La escritura sube por la cadena de <code>__index</code>?',
+    code:
+`local p = Player.new(0, 0)
+p.vida = 50   -- ¿dónde queda "vida"?`,
+    options:[
+      'Sí: se escribe en la tabla-clase Player',
+      'No: la escritura siempre va a la tabla misma (<code>p</code>)',
+      'Depende de si Player define <code>vida</code>',
+      'Da error: las instancias son de solo lectura'
+    ],
+    correct:1,
+    explain:'Leer sube por la cadena; <b>escribir se queda en casa</b>. Gracias a esta asimetría el sistema se auto-organiza: los <b>métodos</b> viven una sola vez en la clase (se encuentran por lectura vía <code>__index</code>) y el <b>estado</b> vive en cada instancia (porque escribir crea la clave localmente).',
+    anchor:'Leer sube por la cadena; escribir se queda en la tabla.'
+  },
+  {
+    lang:"LUA",
+    q:'La línea más confusa del patrón: ¿qué significa <code>Player.__index = Player</code>?',
+    options:[
+      '"Player hereda de sí mismo" (recursión infinita)',
+      'Hace que las instancias sean copias de Player',
+      '"Cuando a una instancia le falte una clave, búscala en la tabla Player"',
+      'Convierte a Player en una tabla de solo lectura'
+    ],
+    correct:2,
+    explain:'La misma tabla cumple <b>dos roles</b>: es la <b>metatabla</b> que le pasas a <code>setmetatable({}, Player)</code> Y el <b>contenedor de métodos</b> donde escribiste <code>function Player:mover()</code>. Podrían ser dos tablas separadas (una de métodos y una metatabla con <code>__index</code> apuntando a ella) — el patrón canónico solo las <span class="hl">colapsa en una por economía</span>.',
+    codeExplain:
+`-- versión "expandida", dos tablas — funciona igual:
+local metodos = {}
+function metodos.mover(self) self.x = self.x + 1 end
+local config = { __index = metodos }   -- metatabla pura
+local p = setmetatable({ x = 10 }, config)
+p:mover()  -- ✔`,
+    anchor:'Player.__index = Player: la clase es metatabla Y estante de métodos a la vez.'
+  },
+  {
+    lang:"LUA",
+    q:'¿Qué retorna <code>setmetatable(t, mt)</code>?',
+    options:[
+      '<code>nil</code> — solo configura',
+      'La metatabla <code>mt</code>',
+      'Una copia nueva de <code>t</code>',
+      'La misma tabla <code>t</code> que recibió'
+    ],
+    correct:3,
+    explain:'Retorna el primer argumento tal cual. Por eso el constructor idiomático hace tres cosas en una línea: <b>crea</b> la tabla, la <b>configura</b> con la metatabla y la <b>devuelve</b>: <code>return setmetatable({}, Player)</code>. Detalle extra por si preguntan: puedes cambiar la metatabla de un objeto <b>en cualquier momento</b> — un objeto puede "cambiar de clase" en runtime, prueba de que las clases en Lua son convención, no ley.',
+    anchor:'return setmetatable({}, Player): crea, configura y devuelve en una línea.'
+  },
+  {
+    lang:"LUA",
+    q:'<code>Moneda</code> hereda de <code>Entity</code> y solo Entity define <code>update</code>. Al llamar <code>m:update(dt)</code>, ¿cuál es el orden de búsqueda?',
+    code:
+`local Moneda = setmetatable({}, { __index = Entity })
+Moneda.__index = Moneda
+local m = Moneda.new(10, 20)
+m:update(dt)   -- ¿dónde lo encuentra?`,
+    options:[
+      'm → Moneda → Entity (cadena de __index)',
+      'Entity → Moneda → m (de padre a hijo)',
+      'Directo en Entity: Lua sabe que es el padre',
+      'Da error: Moneda debe redefinir update'
+    ],
+    correct:0,
+    explain:'La herencia en Lua es <b>literalmente encadenar fallbacks</b>: la instancia no tiene <code>update</code> → su metatabla es Moneda → Moneda tampoco lo tiene → la metatabla de Moneda dice <code>__index = Entity</code> → Entity sí lo tiene → se ejecuta con <code>self = m</code>. Y el <b>override sale gratis</b>: si Moneda definiera su propio <code>update</code>, la búsqueda se detendría antes y "taparía" al del padre.',
+    anchor:'Herencia = encadenar __index: si no está en la hija, busca en el padre.'
+  }
+]},
+{
+  id:"B", color:"#26890C", name:"self y el patrón canónico", lang:"LUA",
+  intro:{
+    title:'Los dos puntos «:» — el azúcar que fabrica a self',
+    body:'En Lua no hay <code>this</code> mágico: hay <b>azúcar sintáctico</b>. Al <b>definir</b>, <code>function Player:mover(dt)</code> agrega un primer parámetro invisible llamado <code>self</code>. Al <b>llamar</b>, <code>p:mover(dt)</code> pasa lo que está a la izquierda como primer argumento. Escríbelo en la pizarra y <span class="hl">no lo borres en toda la clase</span> — resuelve el 80% de los errores de la primera semana. Con eso y <code>__index</code>, el patrón canónico son 4 pasos.',
+    code:
+`a:metodo(x)   ≡   a.metodo(a, x)      -- LA equivalencia
+
+local Player = {}                       -- ① tabla de métodos
+Player.__index = Player
+function Player.new(x, y)               -- ② constructor
+  local self = setmetatable({}, Player)
+  self.x, self.y, self.vida = x, y, 100 --    estado EN la instancia
+  return self
+end
+function Player:recibirDano(n)          -- ③ métodos con ":"
+  self.vida = self.vida - n
+end
+local p1 = Player.new(0, 0)             -- ④ muchas instancias`
+  },
+  questions:[
+  {
+    lang:"LUA",
+    q:'<code>jugador:mover(5)</code> equivale <b>exactamente</b> a…',
+    options:[
+      '<code>jugador.mover(5)</code>',
+      '<code>mover(jugador, 5)</code>',
+      '<code>jugador.mover(jugador, 5)</code>',
+      '<code>Player.mover(5, jugador)</code>'
+    ],
+    correct:2,
+    explain:'Los dos puntos <b>en la llamada</b> insertan el objeto de la izquierda como primer argumento. Es idéntico al <code>this</code> implícito de C#/C++, solo que Lua <b>no te lo esconde</b>: puedes des-azucararlo cuando quieras. De ahí "nace" <code>self</code>: no es magia, es el primer parámetro.',
+    anchor:'a:metodo(x) es a.metodo(a, x) — de ahí sale self.'
+  },
+  {
+    lang:"LUA",
+    q:'Defines <code>function Player:update(dt)</code> pero llamas <code>p.update(dt)</code> (punto, no dos puntos). ¿Qué recibe <code>self</code>?',
+    code:
+`function Player:update(dt)
+  self.x = self.x + 100 * dt   -- 💥 aquí explota
+end
+p.update(0.016)  -- llamada con PUNTO`,
+    options:[
+      '<code>self</code> recibe <code>p</code> igualmente',
+      '<code>self</code> recibe el valor de <code>dt</code> (0.016) y todo se corre una posición',
+      '<code>self</code> recibe <code>nil</code> y dt llega bien',
+      'Lua detecta el error y no compila'
+    ],
+    correct:1,
+    explain:'La definición con <code>:</code> espera que el <b>primer argumento sea el objeto</b>. Al llamar con punto no pasaste el objeto, así que <code>self = 0.016</code> y <code>dt = nil</code>. El síntoma clásico: <code>attempt to index a nil value</code> o <code>attempt to perform arithmetic on a nil value (dt)</code>. Es el <b>error #1 de la primera semana</b> — provócalo en vivo antes de que les pase a solas.',
+    anchor:'Definiste con «:» → llama con «:». Mezclarlos corre todo una posición.'
+  },
+  {
+    lang:"LUA",
+    q:'¿Por qué el <b>constructor</b> se llama con punto — <code>Player.new(0, 0)</code> — y los métodos con dos puntos — <code>p:update(dt)</code>?',
+    options:[
+      'Es solo estética: ambos funcionan igual en todos los casos',
+      'Porque <code>new</code> no opera sobre una instancia existente: la <b>crea</b>; no hay self que pasar',
+      'Porque los dos puntos solo funcionan dentro de love.update',
+      'Porque el punto es más rápido en ejecución'
+    ],
+    correct:1,
+    explain:'Los métodos operan <b>sobre</b> un objeto que ya existe (por eso reciben <code>self</code>). El constructor es distinto: su trabajo es <b>fabricar</b> ese objeto. Antes de <code>new</code> no hay instancia que poner a la izquierda de los dos puntos. Regla de estilo del curso: <b>punto para construir, dos puntos para operar</b>.',
+    anchor:'Punto para construir (new); dos puntos para operar (métodos).'
+  },
+  {
+    lang:"LUA",
+    q:'En el patrón canónico, ¿dónde debe vivir cada cosa?',
+    options:[
+      'Estado y métodos: todo en cada instancia',
+      'Estado y métodos: todo en la tabla-clase',
+      'Estado en cada instancia (vía <code>self.</code> en el constructor); métodos una sola vez en la clase',
+      'Estado en la clase; métodos en cada instancia'
+    ],
+    correct:2,
+    explain:'Los métodos se escriben <b>una vez</b> en la tabla-clase y todas las instancias los encuentran por <code>__index</code> — cero copias. El estado se escribe con <code>self.campo = valor</code> dentro del constructor, así cada instancia tiene <b>su propia</b> vida, posición, etc. Verifícalo en vivo: daña a <code>p1</code> y muestra que <code>p2</code> sigue intacto.',
+    anchor:'Estado en la instancia; métodos en la clase.'
+  },
+  {
+    lang:"LUA",
+    q:'Bug sutil: escribes <code>Player.vida = 100</code> en la tabla-clase (fuera del constructor). ¿Qué pasa con las instancias?',
+    code:
+`Player.vida = 100        -- 😬 estado en la CLASE
+local p1 = Player.new()
+local p2 = Player.new()
+p1.vida = p1.vida - 30   -- ¿y ahora?`,
+    options:[
+      'Nada raro: cada instancia tiene su vida desde el inicio',
+      'Todas "ven" 100 vía <code>__index</code>… hasta que una escribe <code>self.vida</code> y crea su copia local, desincronizándose',
+      'Error: no se puede poner números en la tabla-clase',
+      'p1 y p2 comparten la vida para siempre: dañar a uno daña al otro'
+    ],
+    correct:1,
+    explain:'Al leer, ambas encuentran <code>vida = 100</code> en la clase (plan B de <code>__index</code>). Pero al ejecutar <code>p1.vida = p1.vida - 30</code>, la <b>escritura se queda en p1</b>: ahora p1 tiene 70 propio y p2 sigue leyendo 100 de la clase. Ese comportamiento a medias es confuso de depurar — por eso la regla es tajante: <b>estado siempre en el constructor</b>.',
+    anchor:'Estado en la clase = bug silencioso. Estado siempre con self. en el constructor.'
+  }
+]},
+{
+  id:"C", color:"#7A3FD1", name:"Los 4 pilares (con ojos de gamedev)", lang:"CONCEPTO",
+  intro:{
+    title:"E · A · I · P — cuatro ideas, cuatro frases",
+    body:'<b>Encapsulación:</b> esconde el estado, expón un contrato pequeño (los botones del arcade, no sus cables). <b>Abstracción:</b> decide qué ignorar, a propósito (la bala no necesita pulmones). <b>Herencia:</b> comparte el 90% común, especializa el 10% (is-a). <b>Polimorfismo:</b> una llamada, muchas conductas — <span class="hl">el bucle gloriosamente tonto</span> que mueve a cien entidades distintas sin conocer a ninguna.',
+    code:
+`-- El bucle gloriosamente tonto:
+for _, e in ipairs(entidades) do
+  e:update(dt)   -- ¿goblin? ¿boss? ¿pickup?
+  e:draw()       -- no le importa. Y por eso es perfecto.
+end`
+  },
+  questions:[
+  {
+    lang:"LUA",
+    q:'En Lua escribes <code>self._hp</code> con guion bajo. ¿Qué logra realmente ese guion?',
+    options:[
+      'El intérprete bloquea el acceso desde fuera de la clase',
+      'Nada técnico: es una <b>promesa social</b> — "esto es interno, usa takeDamage()"',
+      'Hace la variable más rápida de leer',
+      'Evita que __index la encuentre'
+    ],
+    correct:1,
+    explain:'Lua <b>no tiene</b> <code>private</code>: la encapsulación es una convención que el equipo hace cumplir en code review. Compáralo con la gradiente: en C# y Verse lo fuerza el compilador. ¿Cuál es mejor? Depende del equipo: la convención escala con disciplina; el compilador escala siempre. Conecta con la vida real: en un estudio, las convenciones de estilo pesan tanto como el lenguaje.',
+    anchor:'El método público es el contrato; el campo _privado no es asunto de nadie más.'
+  },
+  {
+    lang:"CONCEPTO",
+    q:'"Una bala no necesita pulmones." ¿Qué pilar ilustra esta frase?',
+    options:[
+      'Herencia: la bala hereda de Proyectil',
+      'Polimorfismo: cada bala vuela distinto',
+      'Abstracción: modelar solo lo que el juego debe simular',
+      'Encapsulación: los pulmones son privados'
+    ],
+    correct:2,
+    explain:'Abstraer es <b>decidir qué ignorar, a propósito</b>. La puerta de tu juego es <code>abierta = true/false</code>, no una simulación de bisagras. Es una decisión de <b>diseño</b>, no de física: el nivel de detalle correcto es el que el gameplay necesita — nada más. Un buen nombre también abstrae: <code>takeDamage()</code> esconde diez líneas de reglas detrás de dos palabras.',
+    anchor:'Abstracción es decidir qué ignorar — a propósito.'
+  },
+  {
+    lang:"CONCEPTO",
+    q:'El diseñador pide un enemigo <b>volador + venenoso + de fuego</b>. Tu árbol de herencia tiene FlyingEnemy y PoisonEnemy separados. ¿Cuál es la salida sana?',
+    options:[
+      'Herencia múltiple: que herede de los dos padres',
+      'Duplicar el código de veneno dentro de FlyingEnemy',
+      'Composición (has-a): el enemigo TIENE componentes Vuelo, Veneno y Fuego',
+      'Un if gigante dentro de Enemy.update según el tipo'
+    ],
+    correct:2,
+    explain:'Este es el momento donde la herencia <b>se rompe</b>: árboles profundos + combinaciones nuevas = el problema del diamante y clases-blob. La industria respondió con <span class="hl">"favor composition over inheritance"</span>: en vez de SER (is-a), TENER (has-a). Es el <code>AddComponent</code> de Unity y los componentes de Unreal — mezclar piezas en runtime sin crear una subclase por combinación.',
+    anchor:'En vez de SER (is-a), TENER (has-a): vuelo + veneno = componentes, no subclases.'
+  },
+  {
+    lang:"LUA",
+    q:'Agregas un tipo nuevo, <code>Jefe</code>, con su propio <code>update</code>. ¿Qué archivos tocas para que el bucle principal lo mueva?',
+    code:
+`for _, e in ipairs(entidades) do
+  e:update(dt)
+end`,
+    options:[
+      'Solo el archivo nuevo del Jefe: el bucle no cambia ni una letra',
+      'El bucle: agregar un elseif para el tipo Jefe',
+      'Todos los archivos de entidades, para registrar al Jefe',
+      'main.lua: hay que llamar jefe:update aparte'
+    ],
+    correct:0,
+    explain:'Eso es <b>polimorfismo</b> haciendo su trabajo: el bucle depende del <b>rol</b> ("tiene update"), no del tipo concreto. Nunca pregunta qué es cada cosa — por eso está <span class="hl">abierto a extensión</span>: mañana agregas diez tipos de enemigo y este código no se entera. Si tu bucle tiene un <code>if tipo == ...</code>, el polimorfismo está pidiendo ayuda.',
+    anchor:'Un solo bucle de update puede mover cada entidad de tu juego.'
+  }
+]},
+{
+  id:"D", color:"#FFA602", name:"Interfaces: el contrato en 3 lenguajes", lang:"MIX",
+  intro:{
+    title:"El tomacorriente: prometer QUÉ, nunca CÓMO",
+    body:'Una interfaz es el <b>enchufe de la pared</b>: la pared no sabe si conectas una lámpara o una nevera — solo promete "si tienes este enchufe, te doy corriente". <code>IDamageable</code> es el enchufe: <span class="hl">"si sabes recibir daño, la bala te puede golpear"</span>. La bala golpea Player, Enemy, Barrel y Door sin conocer a ninguno. Lo que cambia entre lenguajes es <b>quién hace cumplir</b> la promesa.',
+    code:
+`-- Lua: el contrato es que el método EXISTA (duck typing)
+function Bullet:onHit(t)
+  if t.takeDamage then t:takeDamage(self.dmg) end
+end
+-- "Si sabe recibir daño, dáñalo."`
+  },
+  questions:[
+  {
+    lang:"LUA",
+    q:'En Lua no existe la palabra <code>interface</code>. Entonces, ¿qué ES el contrato <code>IDamageable</code>?',
+    options:[
+      'Una tabla especial marcada como abstracta',
+      'Duck typing: que el método <code>takeDamage</code> <b>exista</b> en el objeto ES el contrato',
+      'Un comentario obligatorio al inicio del archivo',
+      'Una metatabla con __interface'
+    ],
+    correct:1,
+    explain:'"Si camina como pato y grazna como pato…" — en Lua el contrato es una <b>convención en tiempo de ejecución</b>: <code>if t.takeDamage then t:takeDamage(n) end</code>. Flexible y sin boilerplate, pero <b>nada te avisa</b> si a una entidad le falta el método hasta que el juego corre. Puedes reforzarlo con <code>assert(barrel.takeDamage, "debe ser Damageable")</code> y documentando tus protocolos.',
+    anchor:'En Lua, TÚ eres el compilador.'
+  },
+  {
+    lang:"CS",
+    q:'En C#: <code>class Enemy : MonoBehaviour, IDamageable</code>. ¿Qué te garantiza el compilador?',
+    code:
+`public interface IDamageable {
+  void TakeDamage(int amount);
+  bool IsAlive { get; }
+}`,
+    options:[
+      'Que Enemy implemente TODOS los miembros de la interfaz — y puede apilar varias interfaces (pero heredar de una sola clase)',
+      'Que Enemy herede el código de TakeDamage ya implementado',
+      'Solo documentación: si falta un miembro, compila con warning',
+      'Que Enemy no pueda tener otros métodos además de los de la interfaz'
+    ],
+    correct:0,
+    explain:'La interfaz de C# declara <b>solo firmas</b> (el QUÉ) y el compilador <b>exige</b> cada miembro: si falta uno, no compila. Y resuelve la limitación de la herencia simple: <b>una</b> clase base, pero <b>tantas interfaces como quieras</b>. Es la promesa del tomacorriente con un inspector eléctrico incluido.',
+    anchor:'Interfaz en C#: puro QUÉ, cero CÓMO — y el compilador es el inspector.'
+  },
+  {
+    lang:"VERSE",
+    q:'Las interfaces de Verse son más ricas que las clásicas. ¿Qué pueden contener que una interfaz de C# <b>jamás</b> puede?',
+    code:
+`damageable := interface:
+    TakeDamage(Amount:int)<transacts>:void  # abstracto
+    GetHealth()<computes>:int = 100          # default
+    MaxHealth:int = 100                      # ¿¿y esto??`,
+    options:[
+      'Métodos abstractos sin cuerpo',
+      '<b>Campos de datos</b> con valores por defecto que las clases heredan',
+      'Especificadores de efecto como &lt;transacts&gt;',
+      'Nada: son idénticas a las de C#'
+    ],
+    correct:1,
+    explain:'Una interfaz Verse puede declarar <b>datos</b>: <code>MaxHealth:int = 100</code> se hereda con su default (o la clase lo sobreescribe con <code>MaxHealth&lt;override&gt;</code>). También admite implementaciones por defecto de métodos — C# moderno (8+) permite <i>default methods</i>, pero <b>nunca campos de instancia</b>. En Verse el contrato puede traer estado y comportamiento: multiple inheritance de especificaciones, con seguridad de tipos.',
+    anchor:'La interfaz de Verse es un contrato rico: puede traer datos y defaults.'
+  },
+  {
+    lang:"MIX",
+    q:'Ordena la <b>gradiente de enforcement</b> de los contratos, de más laxa a más estricta:',
+    options:[
+      'C# → Verse → Lua',
+      'Verse → Lua → C#',
+      'Lua (convención / duck typing) → C# y Verse (compilador)',
+      'Todos exigen lo mismo: es cuestión de sintaxis'
+    ],
+    correct:2,
+    explain:'En Lua el contrato se cumple por <b>disciplina del equipo</b> (convención, asserts, code review). En C# y Verse lo hace cumplir el <b>compilador</b>: miembro faltante = no compila (en Verse además cada implementación exige el especificador <code>&lt;override&gt;</code>). No es que un extremo sea "mejor": es un trade-off entre flexibilidad y garantías, y debes saber en cuál estás parado.',
+    anchor:'Convención (Lua) → compilador (C#/Verse): misma promesa, distinto policía.'
+  }
+]},
+{
+  id:"E", color:"#E21B3C", name:"POO en Verse (UEFN)", lang:"VERSE",
+  intro:{
+    title:"Verse: clases sin constructores, contratos con dientes",
+    body:'Verse (Epic Games, UEFN/Fortnite) hace POO con reglas propias: las clases se definen con <code>nombre := class:</code> (tipos en <b>snake_case</b>, miembros en <b>PascalCase</b>), los campos son <b>inmutables por defecto</b> (mutar exige <code>var</code> + <code>set</code>), y <span class="hl">no existen constructores tradicionales</span>: se construye con <b>archetypes</b> de campos nombrados. Sobreescribir exige el especificador <code>&lt;override&gt;</code> — el compilador no perdona.',
+    code:
+`character := class:
+    Name : string                 # inmutable, sin default -> obligatorio
+    var Health : int = 100        # mutable, con default
+
+    TakeDamage(Amount : int) : void =
+        set Health = Max(0, Health - Amount)
+
+Hero := character{ Name := "Aldric" }   # archetype = construcción`
+  },
+  questions:[
+  {
+    lang:"VERSE",
+    q:'En Verse <b>no hay constructores tradicionales</b>. ¿Cómo creas una instancia de <code>character</code>?',
+    options:[
+      '<code>new character("Aldric", 100)</code>',
+      '<code>character.new("Aldric")</code> como en Lua',
+      'Con un archetype de campos nombrados: <code>character{ Name := "Aldric" }</code>',
+      '<code>spawn character</code>'
+    ],
+    correct:2,
+    explain:'El <b>archetype</b> usa parámetros nombrados con <code>:=</code>, en cualquier orden: autodocumentado y explícito. Los campos <b>con default</b> pueden omitirse; los que no lo tienen son <b>obligatorios</b> — así los objetos nacen siempre completos. Para lógica de inicialización que necesite <code>Self</code> (registrarse en un sistema, derivar valores), Verse ofrece cláusulas <code>block:</code> dentro de la clase, que corren al construir.',
+    anchor:'En Verse no construyes con new: describes el objeto con un archetype.'
+  },
+  {
+    lang:"VERSE",
+    q:'¿Cómo declaras que <code>enemy</code> hereda de la clase <code>entity</code> e implementa la interfaz <code>damageable</code>?',
+    options:[
+      '<code>enemy := class(entity, damageable):</code> — una clase base, múltiples interfaces',
+      '<code>enemy := class : entity, damageable</code> como en C#',
+      '<code>enemy := class(entity) implements damageable:</code>',
+      'Imposible: Verse no permite heredar e implementar a la vez'
+    ],
+    correct:0,
+    explain:'Igual que C#: <b>herencia simple</b> de clase, pero puedes apilar <b>todas las interfaces</b> que quieras en la misma lista de paréntesis. Dos restricciones que el compilador vigila: la subclase <b>no puede hacer shadowing</b> de campos del padre (nada de redeclarar <code>Value</code>), y al sobreescribir métodos la <b>firma debe ser idéntica</b>.',
+    anchor:'class(padre, interfaz1, interfaz2): una base, muchos contratos.'
+  },
+  {
+    lang:"VERSE",
+    q:'Quieres que <code>enemy</code> redefina el <code>OnUpdate</code> heredado de <code>entity</code>. ¿Qué exige Verse?',
+    code:
+`entity := class:
+    OnUpdate<public>() : void = {}   # no-op por defecto
+
+enemy := class(entity):
+    OnUpdate???() : void =           # ¿qué va aquí?
+        Patrol()`,
+    options:[
+      'Nada especial: basta repetir el nombre del método',
+      'La palabra clave <code>virtual</code> en el padre',
+      'El especificador <code>&lt;override&gt;</code> con la <b>misma firma exacta</b>',
+      'Renombrarlo a OnUpdate2 (no se puede sobreescribir)'
+    ],
+    correct:2,
+    explain:'<code>OnUpdate&lt;override&gt;() : void = ...</code>. El especificador es <b>obligatorio</b> — hace el override explícito y detectable: si te equivocas en la firma o el método padre no existe, <b>no compila</b> (adiós al típico bug de "creí que estaba sobreescribiendo pero creé un método nuevo"). El dispatch es polimórfico: se ejecuta según el tipo <b>real</b> del objeto, no el de la variable.',
+    anchor:'En Verse el override se declara: <override> o no compila.'
+  },
+  {
+    lang:"VERSE",
+    q:'En Verse los campos son <b>inmutables por defecto</b>. Para poder cambiar <code>Health</code> después de construir necesitas…',
+    options:[
+      'Declararlo <code>var Health : int = 100</code> y mutarlo con <code>set Health = ...</code>',
+      'Nada: <code>Health = 50</code> siempre funciona',
+      'Marcarlo <code>&lt;mutable&gt;</code>',
+      'Usar un puntero como en C++'
+    ],
+    correct:0,
+    explain:'Doble candado: sin <code>var</code>, el campo queda fijo tras la construcción; y aun con <code>var</code>, la mutación exige la palabra <code>set</code> (un <code>=</code> a secas en Verse define, inicializa o <b>compara</b> — nunca reasigna). Filosofía del lenguaje y del estilo del equipo: <span class="hl">inmutable por defecto</span>; solo pides mutabilidad cuando la necesitas de verdad.',
+    anchor:'Sin var no hay mutación; sin set tampoco. Inmutable por defecto.'
+  },
+  {
+    lang:"VERSE",
+    q:'Pregunta de experto: <code>IsAlive()&lt;decides&gt;:void = Health &gt; 0</code>. Cuando el personaje está muerto, ¿qué "devuelve"?',
+    options:[
+      '<code>false</code>, como en cualquier lenguaje',
+      '<code>0</code>',
+      'No devuelve nada: la llamada <b>FALLA</b>, y se consume en un contexto de fallo: <code>if (Target.IsAlive[])</code>',
+      '<code>option{}</code> vacío'
+    ],
+    correct:2,
+    explain:'Verse modela el "no" con su <b>sistema de fallos</b>, no con booleanos: <code>&lt;decides&gt;</code> marca la función como failable, se invoca con <b>corchetes</b> <code>[]</code> y solo dentro de un contexto de fallo (<code>if</code>, filtro de <code>for</code>…). Si falla dentro de un <code>if</code>, los cambios especulativos se <b>revierten</b> automáticamente. Es la regla de estilo "failure over booleans": nunca <code>IsSuccess</code> ni valores centinela.',
+    anchor:'En Verse, "no" no es false: es un fallo que el if sabe atrapar.'
+  }
+]},
+{
+  id:"F", color:"#66E28A", name:"Tres dialectos + patrones", lang:"MIX",
+  intro:{
+    title:"Un modelo mental, tres dialectos — y dos patrones estrella",
+    body:'La tabla final del curso: <b>override</b> — Lua <i>tapa la clave</i> en la cadena, C# usa <code>virtual/override</code>, Verse exige <code>&lt;override&gt;</code>. <b>Encapsulación</b> — Lua por convención <code>_nombre</code>, C# y Verse con especificadores de acceso. Aprende el <b>modelo</b>, y te mueves entre los tres. Y dos patrones que usarás toda la carrera: <span class="hl">State</span> (tu FSM, crecida) y <span class="hl">Observer</span> (gritar "¡pasó algo!" sin saber quién escucha).',
+    code:
+`-- State: cada estado, un objeto con una interfaz común
+function Idle:update(player, dt)
+  if love.keyboard.isDown("right") then return "run" end
+end
+-- La máquina delega y cambia cuando el estado lo pide:
+function StateMachine:update(dt)
+  local nxt = self.current:update(self.owner, dt)
+  if nxt then self:change(nxt) end
+end`
+  },
+  questions:[
+  {
+    lang:"MIX",
+    q:'¿Cómo se logra el <b>override</b> de un método en cada lenguaje?',
+    options:[
+      'Los tres usan la palabra override',
+      'Lua: definir la clave en la hija (tapa al padre en la cadena __index) · C#: <code>virtual</code> + <code>override</code> · Verse: <code>&lt;override&gt;</code> obligatorio',
+      'Lua: <code>super.override()</code> · C#: automático · Verse: imposible',
+      'Solo C++ y C# permiten override'
+    ],
+    correct:1,
+    explain:'Mismo efecto, tres mecanismos: en Lua es pura <b>búsqueda de claves</b> (la hija se encuentra primero y la búsqueda se detiene); en C# el padre debe <b>autorizar</b> con <code>virtual</code> y la hija declarar <code>override</code> (dispatch por vtable); en Verse el padre no necesita permiso especial pero la hija <b>debe</b> declararlo con <code>&lt;override&gt;</code> y firma idéntica, o no compila.',
+    anchor:'Override: Lua tapa la clave; C# virtual/override; Verse <override> o no compila.'
+  },
+  {
+    lang:"MIX",
+    q:'Encapsulación comparada: ¿quién protege el campo <code>hp</code> en cada lenguaje?',
+    options:[
+      'Nadie: en los tres es cuestión de confianza',
+      'Lua: convención <code>_hp</code> (el equipo) · C#: <code>private</code> (compilador) · Verse: especificadores <code>&lt;private&gt;</code>/<code>&lt;protected&gt;</code>/<code>&lt;internal&gt;</code> (compilador)',
+      'Lua: private · C#: convención · Verse: nada',
+      'Los tres usan el guion bajo'
+    ],
+    correct:1,
+    explain:'La gradiente otra vez: Lua confía en la <b>disciplina</b> (guion bajo + code review = "usa <code>recibirDano()</code>, no toques <code>_hp</code>"); C# y Verse ponen al <b>compilador</b> de guardián con modificadores de acceso. Verse los escribe como especificadores en ángulos: <code>var Health&lt;private&gt; : int</code>. La lección para tu carrera: en equipos grandes, las garantías del compilador valen oro.',
+    anchor:'Convención escala con disciplina; el compilador escala siempre.'
+  },
+  {
+    lang:"CONCEPTO",
+    q:'Patrón <b>State</b>: tu máquina de estados dibujada en papel (Idle, Run, Jump) se convierte en…',
+    options:[
+      'Un switch gigante dentro de player:update',
+      'Un objeto por estado con interfaz común (enter/update/exit); la máquina delega en el actual y cambia cuando este lo pide',
+      'Una tabla global con banderas booleanas: isIdle, isRunning…',
+      'Tres archivos main.lua distintos'
+    ],
+    correct:1,
+    explain:'Cada estado es una <b>clase pequeñita</b> que implementa el mismo contrato. La máquina es tonta a propósito: llama <code>self.current:update(...)</code> y, si el estado retorna el nombre de una transición, cambia. Ventajas sobre el switch: agregar un estado nuevo <b>no toca</b> los existentes, cada estado encapsula sus reglas, y el diagrama de papel mapea 1-a-1 con el código.',
+    anchor:'State: el FSM crecido — un objeto por estado, una interfaz común, la máquina delega.'
+  },
+  {
+    lang:"CONCEPTO",
+    q:'Patrón <b>Observer</b>: al morir el enemigo suena un audio, sube el score y se actualiza el UI. ¿Qué sabe el enemigo de esos tres sistemas?',
+    options:[
+      'Tiene una referencia directa a cada uno y los llama en orden',
+      '<b>Nada</b>: solo dispara su evento a una lista de listeners que se suscribieron; quién reacciona es asunto de ellos',
+      'Conoce al UI pero no al audio',
+      'Los tres heredan de Enemy para enterarse'
+    ],
+    correct:1,
+    explain:'Observer desacopla <b>"pasó algo"</b> de <b>"quién reacciona"</b>: el enemigo mantiene una lista de funciones suscritas (<code>health:onDeath(fn)</code>) y al morir las recorre. En C# son <code>event Action OnDeath</code> + <code>OnDeath?.Invoke()</code>; en Unreal, delegates multicast. Higiene profesional (regla de tu equipo en Verse): <b>toda suscripción necesita su desuscripción</b>, o cosechas listeners fantasma.',
+    anchor:'Observer: yo grito "¡morí!"; a quién le importe, que escuche.'
+  }
+]}
+];
+
+/* =====================================================================
+   MOTOR DEL JUEGO
+===================================================================== */
+const $ = id => document.getElementById(id);
+const SHAPES = ["▲","◆","●","■"];
+const TIME_PER_Q = 30; // segundos
+
+let selected = new Set(BLOCKS.map(b=>b.id));
+let playlist = [];        // [{kind:'intro',block} | {kind:'q',block,q,shuffle}]
+let idx = -1;
+let score = 0, streak = 0, bestStreak = 0;
+let answered = false;
+let timerId = null, timeLeft = 0;
+let stats = {};           // blockId -> {ok, total}
+let missed = [];          // {block, q}
+let muted = false, audioCtx = null;
+
+/* ---------- audio mínimo (WebAudio, sin assets) ---------- */
+function beep(type){
+  if(muted) return;
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==="suspended") audioCtx.resume();
+    const t = audioCtx.currentTime;
+    const make=(freq,start,dur,gain=0.12,wave="triangle")=>{
+      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      o.type=wave;o.frequency.value=freq;
+      g.gain.setValueAtTime(0.0001,t+start);
+      g.gain.exponentialRampToValueAtTime(gain,t+start+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+start+dur);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t+start);o.stop(t+start+dur+0.05);
+    };
+    if(type==="ok"){ make(523,0,.14); make(784,.12,.2); }
+    else if(type==="bad"){ make(196,0,.3,0.1,"sawtooth"); }
+    else if(type==="tick"){ make(880,0,.05,0.05,"square"); }
+    else if(type==="fanfare"){ make(523,0,.15); make(659,.13,.15); make(784,.26,.15); make(1047,.4,.35,0.14); }
+  }catch(e){}
+}
+$("btnMute").addEventListener("click",()=>{
+  muted=!muted;
+  $("btnMute").textContent = muted ? "🔇" : "🔊";
+});
+
+/* ---------- selección de bloques ---------- */
+function renderBlockPick(){
+  const wrap = $("blockPick"); wrap.innerHTML="";
+  BLOCKS.forEach(b=>{
+    const btn=document.createElement("button");
+    btn.className="block-chip"+(selected.has(b.id)?" on":"");
+    btn.innerHTML=`<span class="t"><span class="dot" style="background:${b.color}"></span>Bloque ${b.id} · ${b.name}</span><span class="n">1 tarjeta enseña + ${b.questions.length} preguntas</span>`;
+    btn.setAttribute("aria-pressed", selected.has(b.id));
+    btn.addEventListener("click",()=>{
+      if(selected.has(b.id)){ if(selected.size>1) selected.delete(b.id); }
+      else selected.add(b.id);
+      renderBlockPick();
+    });
+    wrap.appendChild(btn);
+  });
+}
+$("btnAll").addEventListener("click",()=>{ selected=new Set(BLOCKS.map(b=>b.id)); renderBlockPick(); });
+
+/* ---------- pantallas ---------- */
+function show(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  $(id).classList.add("active");
+  const inGame = (id==="scrQ"||id==="scrIntro");
+  $("hudScore").hidden = !inGame && id!=="scrEnd" ? true : (id==="scrStart");
+  $("hudStreak").hidden = $("hudScore").hidden;
+}
+
+/* ---------- construir partida ---------- */
+function buildPlaylist(onlyMissed=false){
+  playlist=[];
+  if(onlyMissed && missed.length){
+    const byBlock={};
+    missed.forEach(m=>{ (byBlock[m.block.id]=byBlock[m.block.id]||[]).push(m.q); });
+    BLOCKS.forEach(b=>{
+      if(byBlock[b.id]){
+        playlist.push({kind:"intro",block:b});
+        byBlock[b.id].forEach(q=>playlist.push({kind:"q",block:b,q}));
+      }
+    });
+  }else{
+    BLOCKS.filter(b=>selected.has(b.id)).forEach(b=>{
+      playlist.push({kind:"intro",block:b});
+      b.questions.forEach(q=>playlist.push({kind:"q",block:b,q}));
+    });
+  }
+  idx=-1; score=0; streak=0; bestStreak=0; stats={}; missed=[];
+  playlist.forEach(it=>{ if(it.kind==="q"){ stats[it.block.id]=stats[it.block.id]||{ok:0,total:0,name:it.block.name,color:it.block.color}; stats[it.block.id].total++; }});
+  updateHUD();
+}
+function updateHUD(){
+  $("scoreVal").textContent=score;
+  $("streakVal").textContent=streak;
+}
+
+/* ---------- avanzar ---------- */
+function next(){
+  clearInterval(timerId);
+  idx++;
+  if(idx>=playlist.length){ return finish(); }
+  const item=playlist[idx];
+  if(item.kind==="intro") renderIntro(item.block);
+  else renderQuestion(item);
+}
+
+/* ---------- intro (ENSEÑA) ---------- */
+function renderIntro(b){
+  $("introDot").style.background=b.color;
+  $("introTag").textContent=`Bloque ${b.id} · ${b.name}`;
+  $("introTitle").textContent=b.intro.title;
+  $("introBody").innerHTML=b.intro.body;
+  $("introCode").textContent=b.intro.code;
+  show("scrIntro");
+  $("btnIntroGo").focus();
+}
+$("btnIntroGo").addEventListener("click",next);
+
+/* ---------- pregunta (EVALÚA) ---------- */
+function shuffleMap(n){
+  const a=[...Array(n).keys()];
+  for(let i=n-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a; // posición visual -> índice original
+}
+let currentMap=null;
+
+function renderQuestion(item){
+  answered=false;
+  const {block,q}=item;
+  const qNumber = playlist.slice(0,idx+1).filter(x=>x.kind==="q").length;
+  const qTotal  = playlist.filter(x=>x.kind==="q").length;
+
+  $("qBlock").textContent=`Bloque ${block.id}`;
+  $("qBlock").style.background=block.color;
+  const langLabel={LUA:"Lua",CS:"C#",VERSE:"Verse",CONCEPTO:"Concepto",MIX:"Lua·C#·Verse"}[q.lang];
+  $("qLang").className=`chip lang-${q.lang}`;
+  $("qLang").textContent=langLabel;
+  $("qCount").textContent=`Pregunta ${qNumber} / ${qTotal}`;
+  $("qText").innerHTML=q.q;
+  if(q.code){ $("qCodeWrap").hidden=false; $("qCode").textContent=q.code; }
+  else $("qCodeWrap").hidden=true;
+
+  currentMap=shuffleMap(4);
+  const wrap=$("answers"); wrap.innerHTML="";
+  currentMap.forEach((orig,pos)=>{
+    const btn=document.createElement("button");
+    btn.className=`ans c${pos}`;
+    btn.dataset.orig=orig;
+    btn.innerHTML=`<span class="shape" aria-hidden="true">${SHAPES[pos]}</span><span>${q.options[orig]}</span>`;
+    btn.addEventListener("click",()=>answer(pos));
+    wrap.appendChild(btn);
+  });
+
+  $("reveal").classList.remove("show");
+  show("scrQ");
+  startTimer();
+}
+
+function startTimer(){
+  timeLeft=TIME_PER_Q;
+  $("timerFill").style.width="100%";
+  clearInterval(timerId);
+  timerId=setInterval(()=>{
+    timeLeft-=0.1;
+    const pct=Math.max(0,timeLeft/TIME_PER_Q*100);
+    $("timerFill").style.width=pct+"%";
+    if(timeLeft<=5.05 && timeLeft>4.95) beep("tick");
+    if(timeLeft<=0){ clearInterval(timerId); answer(-1); }
+  },100);
+}
+
+function answer(pos){
+  if(answered) return;
+  answered=true;
+  clearInterval(timerId);
+  const item=playlist[idx];
+  const q=item.q;
+  const pickedOrig = pos>=0 ? currentMap[pos] : -1;
+  const isOk = pickedOrig===q.correct;
+
+  // marcar botones
+  document.querySelectorAll(".ans").forEach(btn=>{
+    btn.disabled=true;
+    const orig=+btn.dataset.orig;
+    if(orig===q.correct) btn.classList.add("correct");
+    else if(orig===pickedOrig) btn.classList.add("picked-wrong","dim");
+    else btn.classList.add("dim");
+  });
+
+  // puntaje estilo Kahoot: base 1000 escalado por tiempo + bonus racha
+  let pts=0;
+  if(isOk){
+    streak++; bestStreak=Math.max(bestStreak,streak);
+    const factor=0.5+0.5*Math.max(0,timeLeft)/TIME_PER_Q;
+    pts=Math.round(1000*factor)+Math.min(streak-1,5)*100;
+    score+=pts;
+    stats[item.block.id].ok++;
+    beep("ok");
+  }else{
+    streak=0;
+    missed.push({block:item.block,q});
+    beep("bad");
+  }
+  updateHUD();
+
+  // tarjeta del profesor
+  const badge=$("verdictBadge");
+  badge.className="badge "+(isOk?"ok":"bad");
+  badge.textContent= isOk ? "¡Correcto!" : (pos<0 ? "⏱ Se acabó el tiempo" : "Incorrecto");
+  $("verdictPts").textContent= isOk ? `+${pts} pts` : "+0 pts";
+  $("verdictStreak").textContent= isOk && streak>1 ? `Racha x${streak} 🔥` : (isOk ? "" : "Racha reiniciada");
+  $("explainText").innerHTML=q.explain;
+  if(q.codeExplain){ $("explainCodeWrap").hidden=false; $("explainCode").textContent=q.codeExplain; }
+  else $("explainCodeWrap").hidden=true;
+  $("anchorText").textContent=q.anchor;
+  $("reveal").classList.add("show");
+  $("btnNext").focus();
+}
+$("btnNext").addEventListener("click",next);
+
+/* ---------- final ---------- */
+function finish(){
+  const qTotal=playlist.filter(x=>x.kind==="q").length;
+  const okTotal=Object.values(stats).reduce((s,b)=>s+b.ok,0);
+  $("endScore").textContent=score.toLocaleString("es-CO");
+  $("endSub").textContent=`${okTotal} de ${qTotal} correctas · mejor racha x${bestStreak} 🔥`;
+
+  const res=$("endResults"); res.innerHTML="";
+  Object.entries(stats).forEach(([id,b])=>{
+    const pct=Math.round(b.ok/b.total*100);
+    const row=document.createElement("div");
+    row.className="res-row";
+    row.innerHTML=`<div class="rt"><span>Bloque ${id} · ${b.name}</span><span>${b.ok}/${b.total}</span></div>
+      <div class="bar"><i style="width:0;background:${b.color}"></i></div>`;
+    res.appendChild(row);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ row.querySelector(".bar i").style.width=pct+"%"; }));
+  });
+
+  const rev=$("endReview");
+  if(missed.length){
+    rev.innerHTML=`<h4>Frases-ancla para repasar (${missed.length})</h4><ul>`+
+      missed.map(m=>`<li>${m.q.anchor}</li>`).join("")+`</ul>`;
+    $("btnReplayMissed").hidden=false;
+  }else{
+    rev.innerHTML=`<h4>Repaso</h4><p class="allok">Dominaste los 6 bloques: metatablas, self, pilares, contratos, Verse y patrones. 🏆 Listo para dictarlo.</p>`;
+    $("btnReplayMissed").hidden=true;
+  }
+  beep("fanfare");
+  show("scrEnd");
+}
+
+/* ---------- arranque / replay ---------- */
+$("btnStart").addEventListener("click",()=>{ buildPlaylist(false); next(); });
+$("btnReplay").addEventListener("click",()=>{ show("scrStart"); renderBlockPick(); });
+$("btnReplayMissed").addEventListener("click",()=>{ buildPlaylist(true); next(); });
+
+/* ---------- teclado ---------- */
+document.addEventListener("keydown",e=>{
+  const active=document.querySelector(".screen.active").id;
+  if(active==="scrQ"){
+    if(!answered && ["1","2","3","4"].includes(e.key)){ answer(+e.key-1); }
+    else if(answered && (e.key==="Enter"||e.key===" ")){ e.preventDefault(); next(); }
+  }else if(active==="scrIntro" && (e.key==="Enter"||e.key===" ")){ e.preventDefault(); next(); }
+});
+
+renderBlockPick();
+</script>
+</body>
+</html>
